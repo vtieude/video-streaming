@@ -3,6 +3,9 @@ const  fs = require("fs");
 const  path = require("path");
 const app = express(); // setup express application
 const PORT = process.env.PORT || 5123;
+const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path
+const ffmpeg = require('fluent-ffmpeg')
+ffmpeg.setFfmpegPath(ffmpegPath)
 
 app.get("/", (req, res) => {
   try {
@@ -51,6 +54,19 @@ app.get("/video", (req, res) => {
     
     // create live stream pipe line
     videoStream.pipe(res);
+});
+
+app.get("/video/cut/:videoName", (req, res) => {
+  ffmpeg(path.join(__dirname, "public",  req.params.videoName))
+  .setStartTime('00:00:03')
+  .setDuration(4)
+  .output(path.join(__dirname, "public", "cut_" +  req.params.videoName))
+  .on('end', function(err) {
+    if(!err) { console.log('conversion Done') }
+    res.send()
+  })
+  .on('error', err => console.log('error: ', err))
+  .run()
 });
 
 
