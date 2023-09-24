@@ -6,7 +6,10 @@ const PORT = process.env.PORT || 5123;
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path
 const ffmpeg = require('fluent-ffmpeg')
 ffmpeg.setFfmpegPath(ffmpegPath)
+const request = require('request');
 
+
+const fileUrl = "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
 app.get("/", (req, res) => {
   try {
     res.sendFile(__dirname + "/public/index.html");
@@ -14,6 +17,15 @@ app.get("/", (req, res) => {
     res.status(500).send("internal server error occurred");
   }
 });
+
+app.get("/getfromURL", (req, res) => {
+  try {
+    res.sendFile(__dirname + "/public/urlVideo.html");
+  } catch (err) {
+    res.status(500).send("internal server error occurred");
+  }
+});
+
 app.get("/public/:file_name", (req, res) => {
 	try {
         console.log('request get file', req.params.file_name);
@@ -23,7 +35,8 @@ app.get("/public/:file_name", (req, res) => {
 	}
 });
 
-app.get("/video", (req, res) => {
+app.get("/video/local", (req, res) => {
+  console.log('local')
     // indicates the part of a document that the server should return
     // on this measure in bytes for example: range = 0-6 bytes.
     const  range = req.headers.range;
@@ -54,6 +67,44 @@ app.get("/video", (req, res) => {
     
     // create live stream pipe line
     videoStream.pipe(res);
+});
+
+app.get("/video/Url", (req, res) => {
+  var range = req.headers.range;
+  var positions, start, end, total;
+  // HEAD request for file metadata
+  request({
+    url: fileUrl,
+    method: 'HEAD'
+  }, function(error, response, body){
+      start = Number(range.replace(/\D/g, ""));; 
+      total = response.headers['content-length'];
+      // 10 powered by 6 equal 1000000bytes = 1mb
+      const  chunkSize = 10 ** 6; 
+
+
+      console.log('total', total)
+      end = Math.min(start + chunkSize, total - 1);
+      const  contentLength = end - start + 1;
+
+      res.writeHead(206, { 
+        "Content-Range": "bytes " + start + "-" + end + "/" + total, 
+        "Accept-Ranges": "bytes",
+        "Content-Length": contentLength,
+        "Content-Type":"video/mp4"
+      });
+
+      var options = {
+        url: fileUrl,
+        headers: {
+          range: "bytes=" + start + "-" + end,
+          connection: 'keep-alive'
+        }
+      };
+    
+      request(options).pipe(res);
+  })
+  
 });
 
 app.get("/video/cut/:videoName", (req, res) => {
